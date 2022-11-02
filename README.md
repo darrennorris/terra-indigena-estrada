@@ -21,4 +21,4 @@ respetiando as obrigações de transparência, assim para agilizar e
 facilitar ensino e o desenvolvimento técnico científco. O conteúdo não 
 representar versões ou produtos  finais e não devem ser apresentados/relatados/compartilhados/interpretados como conclusivos. 
 
-Os gráficos e mapas ficam na pasta [figures](https://github.com/darrennorris/Amapa-mine/tree/main/figures) (formato .png e .tif), dados geoespaciais "vector" na pasta [vector](https://github.com/darrennorris/Amapa-mine/tree/main/data/vector) (formato shapefile e GPKG) e "raster" na pasta [raster](https://github.com/darrennorris/Amapa-mine/tree/main/data/raster). 
+Os gráficos e mapas ficam na pasta [figures](https://github.com/darrennorris/terra-indigena-estrada/tree/main/figures) (formato .png e .tif), dados geoespaciais "vector" na pasta [vector](https://github.com/darrennorris/terra-indigena-estrada/tree/main/vector) (formato shapefile e GPKG) e "raster" (formato geoTIFF) na pasta [raster](https://github.com/darrennorris/terra-indigena-estrada/tree/main/raster). 
