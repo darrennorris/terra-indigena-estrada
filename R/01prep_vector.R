@@ -91,12 +91,33 @@ mapview::mapview(ti, z="terrai_nom") +
 mapview::mapview(br156_points_out, z="dist_uaca_m") 
 
 # Buffers
-st_buffer(br156_points_out, dist=250)
-
+br156_points_out_b250m <- st_buffer(br156_points_out, dist=250) %>% 
+  mutate(buff_dist = 250)
+br156_points_out_b500m <- st_buffer(br156_points_out, dist=500) %>% 
+  mutate(buff_dist = 500)
+br156_points_out_b1km <- st_buffer(br156_points_out, dist=1000) %>% 
+  mutate(buff_dist = 1000)
+br156_points_out_b2km <- st_buffer(br156_points_out, dist=2000) %>% 
+  mutate(buff_dist = 2000)
+br156_points_out_b4km <- st_buffer(br156_points_out, dist=4000) %>% 
+  mutate(buff_dist = 4000)
+br156_points_out_b8km <- st_buffer(br156_points_out, dist=8000) %>% 
+  mutate(buff_dist = 8000)
+br156_points_out_b16km <- st_buffer(br156_points_out, dist=16000) %>% 
+  mutate(buff_dist = 16000)
+bind_rows(br156_points_out_b250m, 
+          br156_points_out_b500m, 
+          br156_points_out_b1km, 
+          br156_points_out_b2km, 
+          br156_points_out_b4km, 
+          br156_points_out_b8km, 
+          br156_points_out_b16km) -> br156_points_buffers
 # Export as gpkg
 outfile <- "C:/Users/user/Documents/CA/terra-indigena-estrada/vector/uaca_estrada.GPKG"
 st_write(br156_points_out, dsn = outfile, 
          layer = "br156_points", delete_layer = TRUE, append = TRUE)
+st_write(br156_points_buffers, dsn = outfile, 
+         layer = "br156_points_buffers", delete_layer = TRUE, append = TRUE)
 st_write(br156, dsn = outfile, 
          layer = "br156_line", delete_layer = TRUE, append = TRUE)
 st_write(aldeias, dsn = outfile, 
