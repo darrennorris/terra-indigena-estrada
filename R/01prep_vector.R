@@ -1,6 +1,6 @@
 # prep vector
 # produce sample points along road, 
-# calculate distance to aldeias and distance to city (oiapoque)
+# calculate distance to city (oiapoque)
 # calculate buffers: 250, 500, 1000, 2000, 4000, 8000, 16000 
 # intersect buffers with indigenous territory (Uaçá) and sustainable use PA (FLOTA)
 # Studies show that 95% of accumulated deforestation in the Amazon 
@@ -32,8 +32,8 @@ br156_points <- st_cast(br156, "LINESTRING") %>% st_union() %>%
   st_sample(size = 60, type = "regular") %>% st_cast("POINT") %>% data.frame() %>% st_as_sf()
 br156_points$aid <- rank(-st_coordinates(br156_points)[,2]) 
 
-#manually ajusted
-write_sf(br156_points, "br156_points.shp")
+# Manually ajusted in QGIS
+#write_sf(br156_points, "br156_points.shp")
 br156_points <- read_sf("vector/br156_points.shp")
 mapview::mapview(br156_points, z="aid")
 br156_points %>% 
@@ -46,6 +46,7 @@ br156_points %>%
   mutate(dist_oiap_km = cumsum(replace_na(point_dist_m,0))/1000) -> br156_points
 mapview::mapview(br156_points, z="dist_oiap_km")  
 
+# Check
 ggplot() + 
   geom_sf(data = ecoregions, aes(fill=ECO_NAME)) +
   geom_sf(data=munis_norte, colour="blue", fill=NA) +
@@ -55,10 +56,15 @@ ggplot() +
   scale_fill_grey()
 
 # distance to TI and FLOTA
-br156_points$dist_uaca_m <- as.numeric(st_distance(br156_points, st_cast(ti, "MULTILINESTRING")))
-br156_points$dist_flota_m <- as.numeric(st_distance(br156_points, st_cast(flota, "MULTILINESTRING")))
+br156_points$dist_uaca_m <- round(as.numeric(st_distance(br156_points, 
+                                                         st_cast(ti, "MULTILINESTRING")),1))
+br156_points$dist_flota_m <- round(as.numeric(st_distance(br156_points, 
+                                                          st_cast(flota, "MULTILINESTRING")),1))
 # Join with layers
-br156_points %>% left_join(
+br156_points %>%
+mutate(point_dist_m = round(point_dist_m,1),
+         dist_oiap_km = round(dist_oiap_km,3)) %>% 
+  left_join(
 st_intersection(br156_points, ti) %>% data.frame() %>% 
   mutate(flag_uaca = 1) %>% 
   select(aid, flag_uaca)) %>% left_join(
@@ -73,14 +79,19 @@ st_intersection(br156_points, flota) %>% data.frame() %>%
          ECO_NAME) %>% 
   mutate(flag_uaca = replace_na(flag_uaca,0), 
          flag_flota = replace_na(flag_flota,0), 
-         dist_uaca_m = if_else(flag_uaca==0,-dist_uaca_m, 
-                               dist_uaca_m), 
-         dist_flota_m = if_else(flag_flota==0,-dist_flota_m, 
-                               dist_flota_m)) -> br156_points_out
+         dist_uaca_m = round(if_else(flag_uaca==0,-dist_uaca_m, 
+                               dist_uaca_m),1), 
+         dist_flota_m = round(if_else(flag_flota==0,-dist_flota_m, 
+                               dist_flota_m),1)) -> br156_points_out
 br156_points_out %>% data.frame()
+
+# Check
 mapview::mapview(flota, label="FLOTA", col.regions ="magenta") +
 mapview::mapview(ti, z="terrai_nom") +
 mapview::mapview(br156_points_out, z="dist_uaca_m") 
+
+# Buffers
+st_buffer(br156_points_out, dist=250)
 
 # Export as gpkg
 outfile <- "C:/Users/user/Documents/CA/terra-indigena-estrada/vector/uaca_estrada.GPKG"
