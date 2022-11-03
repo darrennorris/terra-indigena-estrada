@@ -54,9 +54,37 @@ ggplot() +
   geom_sf(data = br156_points) + 
   scale_fill_grey()
 
-#update midpoints with forestloss
+# distance to TI and FLOTA
+br156_points$dist_uaca_m <- as.numeric(st_distance(br156_points, st_cast(ti, "MULTILINESTRING")))
+br156_points$dist_flota_m <- as.numeric(st_distance(br156_points, st_cast(flota, "MULTILINESTRING")))
+# Join with layers
+br156_points %>% left_join(
+st_intersection(br156_points, ti) %>% data.frame() %>% 
+  mutate(flag_uaca = 1) %>% 
+  select(aid, flag_uaca)) %>% left_join(
+st_intersection(br156_points, flota) %>% data.frame() %>% 
+  mutate(flag_flota = 1) %>% 
+  select(aid, flag_flota)
+) %>% left_join( 
+  st_intersection(br156_points, ecoregions) %>% data.frame() %>% 
+    select(aid, ECO_NAME) ) %>%
+  select(aid, point_dist_m, dist_oiap_km, flag_uaca, dist_uaca_m, 
+         flag_flota, dist_flota_m, 
+         ECO_NAME) %>% 
+  mutate(flag_uaca = replace_na(flag_uaca,0), 
+         flag_flota = replace_na(flag_flota,0), 
+         dist_uaca_m = if_else(flag_uaca==0,-dist_uaca_m, 
+                               dist_uaca_m), 
+         dist_flota_m = if_else(flag_flota==0,-dist_flota_m, 
+                               dist_flota_m)) -> br156_points_out
+br156_points_out %>% data.frame()
+mapview::mapview(flota, label="FLOTA", col.regions ="magenta") +
+mapview::mapview(ti, z="terrai_nom") +
+mapview::mapview(br156_points_out, z="dist_uaca_m") 
+
+# Export as gpkg
 outfile <- "C:/Users/user/Documents/CA/terra-indigena-estrada/vector/uaca_estrada.GPKG"
-st_write(br156_points, dsn = outfile, 
+st_write(br156_points_out, dsn = outfile, 
          layer = "br156_points", delete_layer = TRUE, append = TRUE)
 st_write(br156, dsn = outfile, 
          layer = "br156_line", delete_layer = TRUE, append = TRUE)
