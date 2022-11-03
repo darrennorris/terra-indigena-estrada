@@ -170,7 +170,7 @@ br156_split_buffers %>%
   mutate(cent_x_min = min(cent_x)) %>% 
   ungroup() %>% 
   mutate(lado_estrada = if_else(cent_x_min==cent_x,"oeste", "leste")) %>% 
-  mutate(buff_lado_id = paste(buff_id, lado_estrada, sep="")) -> br156_split_buffers
+  mutate(buff_lado_id = paste(buff_id, lado_estrada, sep="_")) -> br156_split_buffers
 # check
 mapview::mapview(flota, label="FLOTA", col.regions ="magenta") +
   mapview::mapview(ti, z="terrai_nom") +
@@ -178,7 +178,33 @@ mapview::mapview(flota, label="FLOTA", col.regions ="magenta") +
 
 # % coverage of FLOTA, Uaçá in each buffer.
 br156_split_buffers %>% data.frame()
-st_intersection(br156_split_buffers, ti)
+st_intersection(br156_split_buffers, ti) %>% 
+  select(buff_lado_id, terrai_nom) -> br156_split_buffers_uaca
+br156_split_buffers_uaca$uaca_area_km2 <- round(as.numeric(units::set_units(st_area(br156_split_buffers_uaca),km^2)), 3)
+br156_split_buffers_uaca %>% data.frame()
+# FLOTA
+st_intersection(br156_split_buffers, flota) %>% 
+  select(buff_lado_id, NOME_UC1) -> br156_split_buffers_flota
+br156_split_buffers_flota$flota_area_km2 <- round(as.numeric(units::set_units(st_area(br156_split_buffers_flota),km^2)), 3)
+br156_split_buffers_flota %>% data.frame()
+
+br156_split_buffers %>% 
+  left_join(data.frame(br156_split_buffers_uaca) %>% 
+              select(buff_lado_id, uaca_area_km2)) %>% 
+  left_join(data.frame(br156_split_buffers_flota) %>% 
+              select(buff_lado_id, flota_area_km2)) %>% 
+  mutate(uaca_area_km2 = replace_na(uaca_area_km2, 0), 
+         flota_area_km2 = replace_na(flota_area_km2, 0)) %>% 
+  arrange(aid, buff_dist) %>% 
+  mutate(sem_prot_km2 = buff_area_km2 - (uaca_area_km2 + flota_area_km2)) %>% 
+  mutate(uaca_per = round((uaca_area_km2/buff_area_km2) * 100, 1), 
+         flota_per = round((flota_area_km2/buff_area_km2) * 100, 1), 
+         sem_per = round((sem_prot_km2/buff_area_km2) * 100, 1)) %>% 
+  mutate(tot_per = uaca_per + flota_per + sem_per) %>%
+  select(aid, buff_dist, buff_lado_id, lado_estrada, buff_area_km2, 
+         uaca_area_km2, flota_area_km2, sem_prot_km2, 
+         uaca_per, flota_per, sem_per, tot_per) -> br156_split_buffers_out
+
 
 # Export as gpkg
 outfile <- "C:/Users/user/Documents/CA/terra-indigena-estrada/vector/uaca_estrada.GPKG"
@@ -186,6 +212,8 @@ st_write(br156_points_out, dsn = outfile,
          layer = "br156_points", delete_layer = TRUE, append = TRUE)
 st_write(br156_points_buffers, dsn = outfile, 
          layer = "br156_points_buffers", delete_layer = TRUE, append = TRUE)
+st_write(br156_split_buffers_out, dsn = outfile, 
+         layer = "br156_split_buffers", delete_layer = TRUE, append = TRUE)
 st_write(br156, dsn = outfile, 
          layer = "br156_line", delete_layer = TRUE, append = TRUE)
 st_write(aldeias, dsn = outfile, 
