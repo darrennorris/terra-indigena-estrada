@@ -156,14 +156,29 @@ bind_rows(bsplit_250,
           bsplit_4km, 
           bsplit_8km, 
           bsplit_16km) %>% 
-  mutate(buff_id = paste(aid, buff_dist, sep="_")) -> br156_split_buffers
+  mutate(buff_id = paste(aid, buff_dist, sep="_")) %>% 
+  arrange(aid, buff_dist) -> br156_split_buffers
 br156_split_buffers$buff_area_km2 <- round(as.numeric(units::set_units(st_area(br156_split_buffers),km^2)), 3)
 # Select only relevant to buffer
 br156_split_buffers %>% 
+  arrange(aid, buff_dist) %>%
   select(aid, buff_id, buff_dist, buff_area_km2) -> br156_split_buffers
+# Identify east west
+br156_split_buffers$cent_x <- st_coordinates(st_centroid(br156_split_buffers))[,1]
+br156_split_buffers %>% 
+  group_by(buff_id) %>% 
+  mutate(cent_x_min = min(cent_x)) %>% 
+  ungroup() %>% 
+  mutate(lado_estrada = if_else(cent_x_min==cent_x,"oeste", "leste")) %>% 
+  mutate(buff_lado_id = paste(buff_id, lado_estrada, sep="")) -> br156_split_buffers
+# check
+mapview::mapview(flota, label="FLOTA", col.regions ="magenta") +
+  mapview::mapview(ti, z="terrai_nom") +
+  mapview::mapview(br156_split_buffers, z="lado_estrada") 
+
 # % coverage of FLOTA, Uaçá in each buffer.
 br156_split_buffers %>% data.frame()
-
+st_intersection(br156_split_buffers, ti)
 
 # Export as gpkg
 outfile <- "C:/Users/user/Documents/CA/terra-indigena-estrada/vector/uaca_estrada.GPKG"
