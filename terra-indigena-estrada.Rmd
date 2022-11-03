@@ -1,0 +1,309 @@
+---
+title: "terra-indigena-estrada"
+author: "Darren Norris"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    fig_caption: yes
+  bookdown::pdf_document2:
+    toc: yes
+    toc_depth: 3
+    number_sections: yes
+    extra_dependencies: flafter
+    highlight: tango
+    includes:
+      in_header: preamble.txe
+urlcolor: blue
+toc-title: Sumário
+header-includes:
+  - \counterwithin{figure}{section}
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(
+  echo = TRUE, collapse = TRUE,
+  comment = "#>" 
+  )
+def_hook <- knit_hooks$get("output")
+knit_hooks$set(output = function(x, options) {
+  out <- def_hook(x, options)
+  return(paste("\\begin{framed}\\begin{verbatim}", x, "\\end{verbatim}\\end{framed}", collapse = "\n"))
+})
+```
+
+\newpage{}
+
+# Apresentação
+O objetivo é calcular métricas de paisagem, descrever a composição e 
+a configuração da paisagem e avaliar o papel da Terra Indígena Uaçá ao redor da rodovia BR-156.
+
+As métricas da paisagem nos ajudam a entender as mudanças na paisagem de diferentes perspectivas (visual, ecológica, cultural). Asssim sendo, análises com métricas de paisagem é um atividade fundamental na ecologia da paisagem. Nesta exemplo (https://rpubs.com/doon75/terra-indigena-estrada) aprenderemos sobre como analisar a cobertura da terra com métricas de paisagem em R.
+
+\newpage
+
+## Organização do codigo no tutorial
+O tutorial está organizado em etapas de processamento, com blocos de código em caixas cinzas:
+```{r, eval=FALSE}
+codigo de R para executar
+```
+
+Para segue os passos, os blocos de código precisam ser executados em sequência. Se você pular uma etapa, ou rodar fora de sequência o próximo bloco de código provavelmente não funcionará.
+
+As linhas de codigo de R dentro de cada caixa tambem preciso ser executados em sequência. O simbolo `r kableExtra::text_spec("#", bold = TRUE)` é usado para incluir comentarios sobre os passos no codgio. Ou seja, linhas começando com  `r kableExtra::text_spec("#", bold = TRUE)` são ignorados por R, e não é codigo de executar.
+
+```{r, eval=FALSE}
+# Passo 1
+codigo de R passo 1 # texto e numeros tem cores diferentes
+# Passo 2
+codigo de R passo 2
+# Passo 3
+codigo de R passo 3
+```
+
+Alem disso, os simbolos `r kableExtra::text_spec("#>", bold = TRUE)` e/ou `r kableExtra::text_spec("[1]", bold = TRUE)` no início de uma linha indica o resultado que você verá no console de R depois de rodar o codigo, como no proximo exemplo. Digite o código abaixo e veja o resultados (passos 1 a 4).
+
+
+```{r, echo=TRUE, results='asis', evaluate = TRUE, collapse = TRUE}
+# Passo 1
+1+1
+
+# Passo 2
+x <- 1+1
+# Passo 3
+x
+
+# Passo 4
+x + 1
+
+```
+
+
+\newpage
+
+
+# Pacotes necessarios
+
+```{r, message=FALSE, warning=FALSE}
+library(landscapemetrics)
+library(tidyverse)
+library(sf)
+library(raster)
+library(terra)
+library(tmap)
+library(gridExtra)
+library(kableExtra)
+library(mapview)
+library(mgcv)
+```
+
+# Dados
+
+## Dados: BR-156 e Terra Indígena Uaçá
+Para entender as mudanças precisamos tambem os pontos de amostra. Por isso, precisamos carregar os dados de rodovia e pontos de amostragem cada 3km. 
+Alem disso, poligonos representando a Terra Indígena Uaçá e FLOTA de Amapá.
+Vamos carregar as camadas necessarios. 
+Baixar o arquivo Link: [https://github.com/darrennorris/terra-indigena-estrada/blob/main/vector/uaca_estrada.GPKG](https://github.com/darrennorris/terra-indigena-estrada/blob/main/vector/uaca_estrada.GPKG){target="_blank"} .
+Lembrando-se de salvar o arquivo ("uaca_estrada.GPKG")  em um local conhecido no seu computador. 
+
+Agora, com o proximo bloco de codigo, podemos selecionar o arquivo "uaca_estrada.GPKG", e carregar camadas.
+
+
+```{r, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE, results='hide'}
+meuSIG <- "vector/uaca_estrada.GPKG"
+
+# pontos cada 3 km
+br156_points <- sf::st_read(meuSIG, layer = "br156_points")
+# linha central BR-156
+br156_line <- sf::st_read(meuSIG, layer = "br156_line") 
+# municipios
+municipios_norte <- sf::st_read(meuSIG, layer = "municipios_norte_ap") 
+# FLOTA
+flota_ap <- sf::st_read(meuSIG, layer = "flota_ap") 
+# TI Uaçá
+ti_uaca <- sf::st_read(meuSIG, layer = "ti_uaca") 
+# buffers
+br156_split_buffers <- sf::st_read(meuSIG, layer = "br156_split_buffers")
+```
+
+
+```{r, eval=FALSE, message=FALSE, results = FALSE}
+#  Selecionar o arquivo "uaca_estrada.GPKG"
+meuSIG <- file.choose()
+# pontos cada 3 km
+br156_points <- sf::st_read(meuSIG, layer = "br156_points")
+# linha central BR-156
+br156_line <- sf::st_read(meuSIG, layer = "br156_line") 
+# municipios
+municipios_norte <- sf::st_read(meuSIG, layer = "municipios_norte_ap") 
+# FLOTA
+flota_ap <- sf::st_read(meuSIG, layer = "flota_ap") 
+# TI Uaçá
+ti_uaca <- sf::st_read(meuSIG, layer = "ti_uaca") 
+# buffers
+br156_split_buffers <- sf::st_read(meuSIG, layer = "br156_split_buffers")
+```
+
+\newpage
+
+Visualizar as camadas
+
+```{r}
+mapview::mapview(flota_ap, label="FLOTA", col.regions ="magenta") +
+  mapview::mapview(ti_uaca, label ="Uaçá") + 
+  mapview::mapview(br156_line, label="BR-156", col.regions= "black") +
+  mapview::mapview(br156_points, label="pontos", col.regions="yellow") 
+
+```
+
+
+## Dados: MapBiomas
+
+Existem varios formas de importar e exportar dados geoespaciais.
+Precisamos o arquivo com os dados de MapBiomas referente a região de estudo. 
+Aqui vamos usar dados de 2020 "utm_cover_AP_muninorte_2020.tif" .
+
+Link: [https://github.com/darrennorris/terra-indigena-estrada/blob/main/raster/AP_utm_muni_norte/utm_cover_AP_muninorte_2020.tif](https://github.com/darrennorris/terra-indigena-estrada/blob/main/raster/AP_utm_muni_norte/utm_cover_AP_muninorte_2020.tif){target="_blank"} 
+
+Lembrando-se de salvar o arquivo ("utm_cover_AP_muninorte_2020.tif") em um local conhecido no seu computador. Agora, nós podemos carregar os dados de cobertura da terra "utm_cover_AP_muninorte_2020.tif" com a função <code>rast</code>.
+```{r eval=FALSE, echo=TRUE, message=FALSE, warning=FALSE}
+# Selecionar e carregar arquivo "utm_cover_AP_muninorte_2020.tif"
+mapbiomas_2020 <- rast(file.choose())
+# Reclassificação - criar uma nova camada de floresta
+floresta_2020 <- mapbiomas_2020
+# Com valor de 0
+values(floresta_2020) <- 0
+# Atualizar categorias florestais agrupados com valor de 1
+# Juntando Formação Florestal, Formação Savânica, Mangue na mesma classe = 1
+floresta_2020[mapbiomas_2020==3 | mapbiomas_2020==4 | mapbiomas_2020==5] <- 1 
+```
+
+```{r, echo=FALSE}
+rin <- "raster/AP_utm_muni_norte/utm_cover_AP_muninorte_2020.tif"
+mapbiomas_2020 <- rast(rin)
+# Reclassificação - criar uma nova camada de floresta
+floresta_2020 <- mapbiomas_2020
+# Com valor de 0
+values(floresta_2020) <- 0
+# Atualizar categorias florestais agrupados com valor de 1
+# Juntando Formação Florestal, Formação Savânica, Mangue na mesma classe = 1
+floresta_2020[mapbiomas_2020==3 | mapbiomas_2020==4 | mapbiomas_2020==5] <- 1 
+```
+
+Plotar para verificar, incluindo nomes e os cores para classes de floresta (valor = 1) e não-floresta (valor = 0).
+
+```{r, eval = FALSE}
+# Passo necessario para agilizar o processamento
+floresta_2020_modal<-aggregate(floresta_2020, fact=10, fun="modal")
+# Plot
+tm_shape(floresta_2020_modal) +
+  tm_raster(style = "cat", 
+            palette = c("0" = "#E974ED", "1" ="#129912"), legend.show = FALSE) + 
+  tm_add_legend(type = "fill", labels = c("não-floresta", "floresta"),
+    col = c("#E974ED", "#129912"), title = "Classe") + 
+tm_shape(br156_points) + 
+  tm_dots(size = 0.2, col = "yellow") + 
+tm_layout(legend.bg.color="white")
+tm_layout(legend.bg.color = "white") 
+```
+
+Se esta todo certo, voces devem ter uma imagem assim:
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE, fig.width=5, fig.height=5, fig.cap="MapBiomas 2020 reclassificado em floresta e não-floresta."}
+# Passo necessario para agilizar o processamento
+floresta_2020_modal<-aggregate(floresta_2020, fact=10, fun="modal")
+# Plot
+tm_shape(floresta_2020_modal) +
+  tm_raster(style = "cat", 
+            palette = c("0" = "#E974ED", "1" ="#129912"), legend.show = FALSE) + 
+  tm_add_legend(type = "fill", labels = c("não-floresta", "floresta"),
+    col = c("#E974ED", "#129912"), title = "Classe") + 
+tm_shape(br156_points) + 
+  tm_dots(size = 0.2, col = "yellow") + 
+tm_layout(legend.bg.color="white")
+tm_layout(legend.bg.color = "white") 
+  
+```
+
+
+# Métricas da paisagem e pacote "landscapemetrics"
+
+## Calculo de métricas
+Para ilustrar como rodar as funções e cálculos com landscapemetrics, vamos calcular a área central na paisagem que usamos no tutorial de Escala. Vamos estudar uma classe (floresta), portanto vamos incluir as métricas para nível de classe. Além disso, as métricas de paisagem em nível de classe são mais eficazes na definição de processos ecológicos (Tischendorf, L. Can landscape indices predict ecological processes consistently?. Landscape Ecology 16, 235–254 (2001). 
+https://doi.org/10.1023/A:1011112719782.).
+
+Métricas de área central ("core area") são consideradas medidas da qualidade de hábitat, uma vez que indica quanto existe realmente de área efetiva de um fragmento, após descontar-se o efeito de borda. Vamos calcular a percentual de área central ("core area"). Isso seria, a percentual de áreas centrais (excluídas as bordas de 30 m) de cada classe em relação à área total da paisagem.
+
+###  Região único, métrica única
+Para a função `r kableExtra::text_spec("sample_lsm()", background = "#dedede")` funcionar, precisamos informar 
+(i) a paisagem (arquivo de raster), (ii) região de interesse (polígono), 
+e por final (v) a métrica  desejada.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+minha_amostra_250 <- sample_lsm(landscape = floresta_2020, 
+                                 y = br156_split_buffers[1, ], 
+                                 plot_id = data.frame(br156_split_buffers)[1, 'buff_lado_id'],
+                            metric = "cpland", 
+                            edge_depth = 1) 
+```
+
+Depois que executar ("run"), podemos olhar os dados com o codigo a seguir. 
+```{r, eval=FALSE}
+minha_amostra_250
+```
+
+Os dados deve ter os valores (coluna value) da métrica (coluna metric) de cada classe (coluna class):
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+minha_amostra_250 %>% 
+  kbl() %>%
+  kable_styling(full_width = F,  latex_options = "hold_position")
+```
+
+
+### Regiões diferentes, distâncias variados, métrica única
+
+Aqui no exmplo vamos quantificar a mesma metrica para 120 regiões de estudo - lado oeste e leste da rodovia em 60 pontos (ponto cada 3 km de Oiapoque).
+Usando buffer com extensões diferentes de 250, 1000 2000 e 4000 metros distantes da rodovia.
+
+Aqui estamos repetindo o processo 600 vezes, portanto pode demorar cerca de 15 minutos...
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Somente distancias desejadas
+br156_split_buffers %>% 
+  filter(buff_dist %in% c(250, 500, 1000, 2000, 4000)) -> br156_split
+# Metricá para as distancias
+minha_metrica <- sample_lsm(landscape = floresta_2020, 
+                                 y = br156_split, 
+                                 plot_id = data.frame(br156_split)[, 'buff_lado_id'],
+                            metric = "cpland", 
+                            edge_depth = 1) 
+```
+
+### Grafico
+
+```{r}
+# Organizar dados
+resultados <- br156_split %>% 
+  left_join(minha_metrica %>% dplyr::select(plot_id, class, metric, value), 
+            by=c("buff_lado_id"="plot_id"))
+# Plot
+resultados %>% 
+  dplyr::filter(class==1) %>% 
+  dplyr::mutate(flag_uaca = factor(if_else(uaca_per >50, "sim", "não"))) %>%
+ggplot(aes(x=buff_dist, y=value, shape = flag_uaca)) + 
+  geom_point(aes(colour=flag_uaca)) + 
+  geom_smooth(method = "gam", formula = y ~ s(x, k = 3), 
+              aes(colour=flag_uaca)) + 
+  scale_color_discrete("TI Uaçá") +
+  scale_shape_discrete("TI Uaçá") +
+  facet_wrap(~lado_estrada) + 
+  labs(title = "Cobertura florestal ao redor do BR-156", 
+       subtitle = "MapBiomas ano 2020",
+       x = "Distância até rodovia (metros)", 
+       y = "Área central de floresta\n(porcentagem da paisagem)")
+  
+```
+
