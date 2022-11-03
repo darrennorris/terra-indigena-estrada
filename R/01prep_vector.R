@@ -13,6 +13,9 @@ library(sf)
 # for cropping
 munis_norte <- read_sf("vector/vector_ibge/munis_norte.shp")
 br156 <- read_sf("vector/br156_uaca.shp")
+# Used to split buffer polygons
+br156long <- read_sf("vector/br156_uaca_long.shp") %>% 
+  st_make_valid()
 ti <- read_sf("vector/vector_funai/tis_poligonais_portarias", 
               options = "ENCODING=WINDOWS-1252",
               stringsAsFactors = FALSE) %>% 
@@ -111,7 +114,57 @@ bind_rows(br156_points_out_b250m,
           br156_points_out_b2km, 
           br156_points_out_b4km, 
           br156_points_out_b8km, 
-          br156_points_out_b16km) -> br156_points_buffers
+          br156_points_out_b16km) %>% 
+  mutate(buff_id = paste(aid, buff_dist, sep="_")) -> br156_points_buffers
+br156_points_buffers$buff_area_km2 <- round(as.numeric(units::set_units(st_area(br156_points_buffers),km^2)), 3)
+# Select only relevant to buffer
+br156_points_buffers %>% 
+  select(aid, buff_id, buff_dist, buff_area_km2) -> br156_points_buffers
+# % coverage of FLOTA, Uaçá in each buffer.
+
+# Split buffer polygons by road
+bsplit_250 <- lwgeom::st_split(br156_points_out_b250m, br156) %>% 
+  st_collection_extract("POLYGON") %>% 
+  mutate(aid = factor(aid))
+bsplit_500 <- lwgeom::st_split(br156_points_out_b500m, br156) %>% 
+  st_collection_extract("POLYGON") %>% 
+  mutate(aid = factor(aid))
+bsplit_1km <- lwgeom::st_split(br156_points_out_b1km, br156long) %>% 
+  st_collection_extract("POLYGON") %>% 
+  mutate(aid = factor(aid))
+bsplit_2km <- lwgeom::st_split(br156_points_out_b2km, br156long) %>% 
+  st_collection_extract("POLYGON") %>% 
+  mutate(aid = factor(aid))
+bsplit_4km <- lwgeom::st_split(br156_points_out_b4km, br156long) %>% 
+  st_collection_extract("POLYGON") %>% 
+  mutate(aid = factor(aid))
+bsplit_8km <- lwgeom::st_split(br156_points_out_b8km, br156long) %>% 
+  st_collection_extract("POLYGON") %>% 
+  mutate(aid = factor(aid))
+bsplit_16km <- lwgeom::st_split(br156_points_out_b16km, br156long) %>% 
+  st_collection_extract("POLYGON") %>% 
+  mutate(aid = factor(aid))
+# check
+mapview::mapview(flota, label="FLOTA", col.regions ="magenta") +
+  mapview::mapview(ti, z="terrai_nom") +
+  mapview::mapview(bsplit_16km, z="aid") 
+# Join
+bind_rows(bsplit_250, 
+          bsplit_500, 
+          bsplit_1km, 
+          bsplit_2km, 
+          bsplit_4km, 
+          bsplit_8km, 
+          bsplit_16km) %>% 
+  mutate(buff_id = paste(aid, buff_dist, sep="_")) -> br156_split_buffers
+br156_split_buffers$buff_area_km2 <- round(as.numeric(units::set_units(st_area(br156_split_buffers),km^2)), 3)
+# Select only relevant to buffer
+br156_split_buffers %>% 
+  select(aid, buff_id, buff_dist, buff_area_km2) -> br156_split_buffers
+# % coverage of FLOTA, Uaçá in each buffer.
+br156_split_buffers %>% data.frame()
+
+
 # Export as gpkg
 outfile <- "C:/Users/user/Documents/CA/terra-indigena-estrada/vector/uaca_estrada.GPKG"
 st_write(br156_points_out, dsn = outfile, 
