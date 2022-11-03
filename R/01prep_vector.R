@@ -162,7 +162,7 @@ br156_split_buffers$buff_area_km2 <- round(as.numeric(units::set_units(st_area(b
 # Select only relevant to buffer
 br156_split_buffers %>% 
   arrange(aid, buff_dist) %>%
-  select(aid, buff_id, buff_dist, buff_area_km2) -> br156_split_buffers
+  select(aid, buff_id, buff_dist, buff_area_km2, dist_oiap_km) -> br156_split_buffers
 # Identify east west
 br156_split_buffers$cent_x <- st_coordinates(st_centroid(br156_split_buffers))[,1]
 br156_split_buffers %>% 
@@ -187,7 +187,7 @@ st_intersection(br156_split_buffers, flota) %>%
   select(buff_lado_id, NOME_UC1) -> br156_split_buffers_flota
 br156_split_buffers_flota$flota_area_km2 <- round(as.numeric(units::set_units(st_area(br156_split_buffers_flota),km^2)), 3)
 br156_split_buffers_flota %>% data.frame()
-
+# Calculate percentage of each buffer
 br156_split_buffers %>% 
   left_join(data.frame(br156_split_buffers_uaca) %>% 
               select(buff_lado_id, uaca_area_km2)) %>% 
@@ -201,8 +201,8 @@ br156_split_buffers %>%
          flota_per = round((flota_area_km2/buff_area_km2) * 100, 1), 
          sem_per = round((sem_prot_km2/buff_area_km2) * 100, 1)) %>% 
   mutate(tot_per = uaca_per + flota_per + sem_per) %>%
-  select(aid, buff_dist, buff_lado_id, lado_estrada, buff_area_km2, 
-         uaca_area_km2, flota_area_km2, sem_prot_km2, 
+  select(aid, buff_dist, buff_lado_id, lado_estrada, dist_oiap_km, 
+         buff_area_km2, uaca_area_km2, flota_area_km2, sem_prot_km2, 
          uaca_per, flota_per, sem_per, tot_per) -> br156_split_buffers_out
 
 
