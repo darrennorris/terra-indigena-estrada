@@ -179,6 +179,24 @@ values(floresta_2020) <- 0
 # Atualizar categorias florestais agrupados com valor de 1
 # Juntando Formação Florestal, Formação Savânica, Mangue na mesma classe = 1
 floresta_2020[mapbiomas_2020==3 | mapbiomas_2020==4 | mapbiomas_2020==5] <- 1 
+
+# varios anos
+# Selecionar arquivo "utm_cover_AP_muninorte_1985.tif"
+r1985 <- file.choose()
+# Selecionar arquivo "utm_cover_AP_muninorte_2003.tif"
+r2003 <- file.choose()
+# Selecionar arquivo "utm_cover_AP_muninorte_2020.tif"
+r2020 <- file.choose()
+# combinação com os 3 arquivos
+r85a20 <- c(r1985, r2003, r2020)
+mapbiomas_85a20 <- rast(r85a20)
+# Reclassificação - criar uma nova camada de floresta
+floresta_85a20 <- mapbiomas_85a20
+# Com valor de 0
+values(floresta_85a20) <- 0
+# Atualizar categorias florestais agrupados com valor de 1
+# Juntando Formação Florestal, Formação Savânica, Mangue na mesma classe = 1
+floresta_85a20[mapbiomas_85a20==3 | mapbiomas_85a20==4 | mapbiomas_85a20==5] <- 1
 ```
 
 ```{r, echo=FALSE}
@@ -191,6 +209,21 @@ values(floresta_2020) <- 0
 # Atualizar categorias florestais agrupados com valor de 1
 # Juntando Formação Florestal, Formação Savânica, Mangue na mesma classe = 1
 floresta_2020[mapbiomas_2020==3 | mapbiomas_2020==4 | mapbiomas_2020==5] <- 1 
+
+# varios anos
+r1985 <- "raster/AP_utm_muni_norte/utm_cover_AP_muninorte_1985.tif"
+r2003 <- "raster/AP_utm_muni_norte/utm_cover_AP_muninorte_2003.tif"
+r2020 <- "raster/AP_utm_muni_norte/utm_cover_AP_muninorte_2020.tif"
+r85a20 <- c(r1985, r2003, r2020)
+mapbiomas_85a20 <- rast(r85a20)
+# Reclassificação - criar uma nova camada de floresta
+floresta_85a20 <- mapbiomas_85a20
+# Com valor de 0
+values(floresta_85a20) <- 0
+# Atualizar categorias florestais agrupados com valor de 1
+# Juntando Formação Florestal, Formação Savânica, Mangue na mesma classe = 1
+floresta_85a20[mapbiomas_85a20==3 | mapbiomas_85a20==4 | mapbiomas_85a20==5] <- 1
+plot(subset(floresta_85a20,1), type="classes")
 ```
 
 Plotar para verificar, incluindo nomes e os cores para classes de floresta (valor = 1) e não-floresta (valor = 0).
@@ -305,5 +338,46 @@ ggplot(aes(x=buff_dist, y=value, shape = flag_uaca)) +
        x = "Distância até rodovia (metros)", 
        y = "Área central de floresta\n(porcentagem da paisagem)")
   
+```
+
+
+### Regiões diferentes, distâncias variados, anos diferentes, métrica única
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Somente distancias desejadas
+br156_split_buffers %>% 
+  filter(buff_dist %in% c(250, 500, 1000, 2000, 4000)) -> br156_split
+# Metricá para as distancias
+minha_metrica_85a20 <- sample_lsm(landscape = floresta_85a20, 
+                                 y = br156_split, 
+                                 plot_id = data.frame(br156_split)[, 'buff_lado_id'],
+                            metric = "cpland", 
+                            edge_depth = 1) 
+```
+
+```{r fig-years, message=FALSE, warning=FALSE}
+# Organizar dados
+resultados_85a20 <- br156_split %>% 
+  left_join(minha_metrica_85a20 %>% 
+              dplyr::select(layer, plot_id, class, metric, value), 
+            by=c("buff_lado_id"="plot_id")) %>% 
+  mutate(ano = case_when(layer==1~1985, 
+                         layer==2~2003, 
+                         layer==3~2020))
+
+# Plot
+resultados_85a20 %>% 
+  dplyr::filter(class==1) %>% 
+  dplyr::mutate(flag_uaca = factor(if_else(uaca_per >50, "sim", "não"))) %>%
+ggplot(aes(x=ano, y=value, shape = flag_uaca)) + 
+  geom_jitter(aes(colour=flag_uaca), width=1, height=1, alpha=0.4) + 
+  geom_smooth(aes(colour=flag_uaca)) + 
+  scale_color_discrete("TI Uaçá") +
+  scale_shape_discrete("TI Uaçá") +
+  facet_grid(buff_dist~lado_estrada) + 
+  labs(title = "Cobertura florestal ao redor do BR-156", 
+       subtitle = "MapBiomas",
+       x = "Ano", 
+       y = "Área central de floresta\n(porcentagem da paisagem)")
 ```
 
