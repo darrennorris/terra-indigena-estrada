@@ -343,11 +343,12 @@ ggplot(aes(x=buff_dist, y=value, shape = flag_uaca)) +
 
 ### Regiões diferentes, distâncias variados, anos diferentes, métrica única
 
+Vamos repetir o mesmo processo mais agora com 3 anos. 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 # Somente distancias desejadas
 br156_split_buffers %>% 
   filter(buff_dist %in% c(250, 500, 1000, 2000, 4000)) -> br156_split
-# Metricá para as distancias
+# Metricá para as distancias - 1 hora mais ou menos para rodar com 3 anos.
 minha_metrica_85a20 <- sample_lsm(landscape = floresta_85a20, 
                                  y = br156_split, 
                                  plot_id = data.frame(br156_split)[, 'buff_lado_id'],
@@ -355,7 +356,11 @@ minha_metrica_85a20 <- sample_lsm(landscape = floresta_85a20,
                             edge_depth = 1) 
 ```
 
-```{r fig-years, message=FALSE, warning=FALSE}
+E ajustando o código organizando para que os anos sejam apresentados nos gráficos. 
+Primeiramente incluindo os atributos associados com os buffers (“br156_split”) nos resultados com as métricas (“minha_metrica_85a20”) através a função “left_join”. E depois acrescentando uma nova coluna “ano” com o ano para cada camada de paisagem (conforme a sequência de anos das rasters de MapBiomas).
+
+
+```{r arrange-years, message=FALSE, warning=FALSE}
 # Organizar dados
 resultados_85a20 <- br156_split %>% 
   left_join(minha_metrica_85a20 %>% 
@@ -365,10 +370,19 @@ resultados_85a20 <- br156_split %>%
                          layer==2~2003, 
                          layer==3~2020))
 
-# Plot
+```
+
+Agora podemos fazer o grafico comparando a métrica de Área central de floresta (eixo Y) onde ha graus de proteção ambiental diferentes ao longo do BR-156 entre anos (eixo X). Para isso, apresentamos as métricas da classe de floresta (filtro - filter(class==1)), e identificando buffers com maior proteção, aqui os com mais de 50% dentro da TI Uaçá. 
+
+Para comunicar os resultados em uma forma mais clara, usamos a função "facet_grid" para apresentar os resultados em gráficos separados por lado da estrada e extensões diferentes (buffer de 250 m, 500 m, 1 km, 2 km e 4 km).
+
+```{r fig-anos, message=FALSE, warning=FALSE, fig.cap="Mudanças na cobertura florestal na paisagem entre 1985 a 2020. Valores anuais de Área central (core area) de floresta, ao redor da rodovia BR-156. Porcentagem de Areá central de floresta calculados em buffers (raios de 250, 500, 1000, 2000 e 4000 metros) em torno de 60 pontos regularmente espaçados ao longo da rodovia BR-156, sul de Oiapoque. Comparando valores entre pontos com diferentes graus de proteção ambiental. Onde TI Uaça = sim são os com mais de 50% dentro da TI Uaçá, e pelo lado da estrada (lado oeste com maior cobertura da Floresta Estadual do Amapá e lado leste com maior cobertura da TI Uaçá)."}
+
+# floresta
 resultados_85a20 %>% 
   dplyr::filter(class==1) %>% 
   dplyr::mutate(flag_uaca = factor(if_else(uaca_per >50, "sim", "não"))) %>%
+# Plot
 ggplot(aes(x=ano, y=value, shape = flag_uaca)) + 
   geom_jitter(aes(colour=flag_uaca), width=1, height=1, alpha=0.4) + 
   geom_smooth(aes(colour=flag_uaca)) + 
